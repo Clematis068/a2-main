@@ -65,6 +65,9 @@ def run_benchmark(
     if not torch.cuda.is_available() and device == 'cuda':
         raise RuntimeError("cuda exclusive")
     
+    if "rope_theta" not in model_config:
+        model_config["rope_theta"] = 10000.0
+    
     model: torch.nn.Module = Transformer(vocab_size, seq_len, **model_config).to(
         device = device
     )
