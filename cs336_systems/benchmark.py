@@ -82,7 +82,7 @@ def run_benchmark(
     targets = torch.randint(0, vocab_size, (batch_size, seq_len), device = device)
 
     mixed_or_null_ctx = torch.autocast(device_type = device, dtype = torch.bfloat16) if mixed else nullcontext()
-
+    scaler = torch.amp.GradScaler(enabled=mixed)
     fw_acc, bw_acc, opt_acc = [], [], []
 
     with mixed_or_null_ctx:
@@ -100,14 +100,15 @@ def run_benchmark(
             if mode in ("forward_backward", "train"):
                 loss = cross_entropy(logits, targets)
                 d1 = timeit.default_timer()
-                loss.backward()
+                scaler.scale(loss).backward()
                 torch.cuda.synchronize(device=device)
                 dt_bw = timeit.default_timer() - d1
 
             dt_opt = 0.0
             if mode == "train":
                 t2 = timeit.default_timer()
-                optimizer.step()
+                scaler.step(optimizer)
+                scaler.update()
                 torch.cuda.synchronize(device=device)
                 dt_opt = timeit.default_timer() - t2
                 optimizer.zero_grad(set_to_none = True)
